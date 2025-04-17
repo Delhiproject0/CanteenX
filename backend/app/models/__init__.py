@@ -1,4 +1,4 @@
-from app.models.user import User
+# from app.models.user import User
 from app.models.menu_item import MenuItem
 from app.models.order import Order, OrderItem, OrderStatus
 from app.models.promotion import Promotion, DiscountType

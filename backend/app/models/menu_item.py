@@ -13,7 +13,7 @@ class MenuItem(BaseModel):
     is_vegetarian: bool = False
     is_vegan: bool = False
     is_gluten_free: bool = False
-    preparation_time: int  # In minutes
+    preparation_time: Optional[int] = 15  # Default 15 minutes if not specified
     canteen_id: int
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now) 

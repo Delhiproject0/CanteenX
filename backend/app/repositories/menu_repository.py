@@ -1,6 +1,6 @@
 from typing import List, Optional
-from app.db import get_db_cursor
-from app.models.menu_item import MenuItem
+from ..db import get_db_cursor
+from  ..models.menu_item import MenuItem
 from datetime import datetime
 
 class MenuRepository:
@@ -10,13 +10,22 @@ class MenuRepository:
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT * FROM menu_items
+                SELECT id, name, description, price, category, is_available, 
+                       canteen_id, image_url, created_at, 
+                       CURRENT_TIMESTAMP as updated_at
+                FROM menu_items
                 WHERE canteen_id = %s
                 ORDER BY category, name
                 """, 
                 (canteen_id,)
             )
             rows = cursor.fetchall()
+            # Add default values for fields that don't exist in the database
+            for row in rows:
+                row['is_vegetarian'] = False
+                row['is_vegan'] = False
+                row['is_gluten_free'] = False
+                row['preparation_time'] = 15
             return [MenuItem(**row) for row in rows]
 
     @staticmethod
@@ -25,13 +34,21 @@ class MenuRepository:
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT * FROM menu_items
+                SELECT id, name, description, price, category, is_available, 
+                       canteen_id, image_url, created_at,
+                       CURRENT_TIMESTAMP as updated_at
+                FROM menu_items
                 WHERE id = %s
                 """, 
                 (item_id,)
             )
             row = cursor.fetchone()
             if row:
+                # Add default values for fields that don't exist in the database
+                row['is_vegetarian'] = False
+                row['is_vegan'] = False
+                row['is_gluten_free'] = False
+                row['preparation_time'] = 15
                 return MenuItem(**row)
             return None
 
@@ -43,48 +60,59 @@ class MenuRepository:
                 """
                 INSERT INTO menu_items (
                     name, description, price, category, image_url,
-                    is_available, is_vegetarian, is_vegan, is_gluten_free,
-                    preparation_time, canteen_id, created_at, updated_at
+                    is_available, canteen_id, created_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                ) RETURNING *
+                    %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id, name, description, price, category, is_available, 
+                           canteen_id, image_url, created_at
                 """,
                 (
                     menu_item.name, menu_item.description, menu_item.price,
                     menu_item.category, menu_item.image_url, menu_item.is_available,
-                    menu_item.is_vegetarian, menu_item.is_vegan, menu_item.is_gluten_free,
-                    menu_item.preparation_time, menu_item.canteen_id,
-                    menu_item.created_at, menu_item.updated_at
+                    menu_item.canteen_id, menu_item.created_at
                 )
             )
             row = cursor.fetchone()
+            if row:
+                # Add default values for fields that don't exist in the database
+                row['is_vegetarian'] = menu_item.is_vegetarian
+                row['is_vegan'] = menu_item.is_vegan
+                row['is_gluten_free'] = menu_item.is_gluten_free
+                row['preparation_time'] = menu_item.preparation_time
+                row['updated_at'] = datetime.now()
             return MenuItem(**row)
 
     @staticmethod
     def update_menu_item(item_id: int, menu_item: MenuItem) -> Optional[MenuItem]:
         """Update an existing menu item"""
-        menu_item.updated_at = datetime.now()
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE menu_items SET
-                    name = %s, description = %s, price = %s, category = %s,
-                    image_url = %s, is_available = %s, is_vegetarian = %s,
-                    is_vegan = %s, is_gluten_free = %s, preparation_time = %s,
-                    updated_at = %s
+                    name = %s, 
+                    description = %s, 
+                    price = %s, 
+                    category = %s,
+                    image_url = %s, 
+                    is_available = %s
                 WHERE id = %s AND canteen_id = %s
-                RETURNING *
+                RETURNING id, name, description, price, category, is_available, 
+                          canteen_id, image_url, created_at
                 """,
                 (
                     menu_item.name, menu_item.description, menu_item.price,
                     menu_item.category, menu_item.image_url, menu_item.is_available,
-                    menu_item.is_vegetarian, menu_item.is_vegan, menu_item.is_gluten_free,
-                    menu_item.preparation_time, menu_item.updated_at,
                     item_id, menu_item.canteen_id
                 )
             )
             row = cursor.fetchone()
             if row:
+                # Add default values for fields that don't exist in the database
+                row['is_vegetarian'] = menu_item.is_vegetarian
+                row['is_vegan'] = menu_item.is_vegan
+                row['is_gluten_free'] = menu_item.is_gluten_free
+                row['preparation_time'] = menu_item.preparation_time
+                row['updated_at'] = datetime.now()
                 return MenuItem(**row)
             return None
 
@@ -108,13 +136,22 @@ class MenuRepository:
         with get_db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT * FROM menu_items
+                SELECT id, name, description, price, category, is_available, 
+                       canteen_id, image_url, created_at,
+                       CURRENT_TIMESTAMP as updated_at
+                FROM menu_items
                 WHERE canteen_id = %s AND category = %s
                 ORDER BY name
                 """,
                 (canteen_id, category)
             )
             rows = cursor.fetchall()
+            # Add default values for fields that don't exist in the database
+            for row in rows:
+                row['is_vegetarian'] = False
+                row['is_vegan'] = False
+                row['is_gluten_free'] = False
+                row['preparation_time'] = 15
             return [MenuItem(**row) for row in rows]
 
     @staticmethod
@@ -140,10 +177,9 @@ class MenuRepository:
             cursor.execute(
                 """
                 UPDATE menu_items SET
-                    is_available = %s,
-                    updated_at = %s
+                    is_available = %s
                 WHERE id = ANY(%s) AND canteen_id = %s
                 """,
-                (is_available, datetime.now(), item_ids, canteen_id)
+                (is_available, item_ids, canteen_id)
             )
             return cursor.rowcount 

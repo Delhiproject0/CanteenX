@@ -5,15 +5,16 @@ import strawberry
 from strawberry.fastapi import GraphQLRouter
 
 from .queries.order_queries import OrdersQuery, OrdersMutation
+from .queries.menu_queries import MenuQuery, MenuMutation
 
 @strawberry.type
-class Query(OrdersQuery):
+class Query(OrdersQuery, MenuQuery):
     @strawberry.field
     def hello(self) -> str:
         return "Hello from GraphQL!"
 
 @strawberry.type
-class Mutation(OrdersMutation):
+class Mutation(OrdersMutation, MenuMutation):
     pass
 
 graphql_schema = strawberry.Schema(query=Query, mutation=Mutation)
