@@ -1,11 +1,13 @@
 import strawberry
 from typing import List, Optional
 from datetime import datetime
-from app.models.order import Order, OrderItem
+from app.models.order import Order, OrderItem, OrderItemType
 from app.models.menu_item import MenuItem
 from app.models.canteen import Canteen
 from app.models.user import User
 from app.core.database import get_db
+import json
+from sqlalchemy.orm import Session
 
 @strawberry.type
 class OrderMutationResponse:
@@ -135,6 +137,125 @@ class Mutation:
                 success=False,
                 message=f"Failed to update order status: {str(e)}"
             )
+    
+@strawberry.input
+class OrderItemTypeInput:
+    order_item_id: int
+    order_id: int
+    menu_item_id: int
+    menu_item_name: str
+    canteen_id: int
+    canteen_name: str
+    quantity: int
+    unit_price: float
+    total_price: float
+    size: Optional[str] = None
+    extras: Optional[str] = None
+    preparation_time: Optional[int] = None
+    is_prepared: bool = False
+    special_instructions: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@strawberry.type
+class OrderMutation:
+    @strawberry.mutation
+    def place_scheduled_order(
+        self,
+        order_id: int,
+        user_id: int,
+        canteen_id: int,
+        items: List[OrderItemTypeInput],
+        subtotal: float,
+        tax_amount: float,
+        total_amount: float,
+        tax_rate: float,
+        payment_method: Optional[str] = None,
+        pickup_time: Optional[datetime] = None,
+        notes_from_customer: Optional[str] = None,
+    ) -> OrderMutationResponse:
+        db: Session = next(get_db())
+        now = datetime.now()
+
+        new_order = Order(
+            id=order_id,
+            user_id=user_id,
+            canteen_id=canteen_id,
+            status='scheduled',
+            subtotal=subtotal,
+            tax_rate=tax_rate,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            payment_status=False,
+            payment_method=payment_method,
+            pickup_time=pickup_time,
+            created_at=now,
+            updated_at=now,
+            notes_from_customer=notes_from_customer,
+        )
+        db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
+
+        for item in items:
+            order_item = OrderItem(
+                order_id=new_order.id,
+                id=item.order_item_id,
+                menu_item_id=item.menu_item_id,
+                menu_item_name=item.menu_item_name,
+                canteen_id=item.canteen_id,
+                canteen_name=item.canteen_name,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total_price=item.total_price,
+                preparation_time=item.preparation_time,
+                is_prepared=False,
+                size=json.loads(item.size) if item.size else None,
+                extras=json.loads(item.extras) if item.extras else None,
+                special_instructions=item.special_instructions,
+                notes=item.notes,
+                created_at=now,
+            )
+            db.add(order_item)
+
+        db.commit()
+        return OrderMutationResponse(success=True, message=f"Scheduled order #{new_order.id} placed successfully")
+
+    @strawberry.mutation
+    def update_order(
+        self,
+        order_id: int,
+        payment_status: Optional[bool] = None,
+        payment_method: Optional[str] = None,
+        
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        pickup_time: Optional[datetime] = None,
+        notes_for_kitchen: Optional[str] = None,
+    ) -> OrderMutationResponse:
+        db: Session = next(get_db())
+        order = db.query(Order).filter(Order.id == order_id).first()
+
+        if not order:
+            return OrderMutationResponse(success=False, message="Order not found")
+
+        if status:
+            order.status = status
+        if priority:
+            order.priority = priority
+        if pickup_time:
+            order.pickup_time = pickup_time
+        if notes_for_kitchen:
+            order.notes_for_kitchen = notes_for_kitchen
+        if payment_status is not None:
+            order.payment_status = payment_status
+        if payment_method:
+            order.payment_method = payment_method
+
+        order.updated_at = datetime.now()
+        db.commit()
+
+        return OrderMutationResponse(success=True, message=f"Order #{order_id} updated successfully")
 
     @strawberry.mutation
     def cancel_order(
@@ -227,4 +348,7 @@ mutations = [
     strawberry.field(name="updateOrderStatus", resolver=Mutation.update_order_status),
     strawberry.field(name="cancelOrder", resolver=Mutation.cancel_order),
     strawberry.field(name="updatePaymentStatus", resolver=Mutation.update_payment_status),
+    strawberry.mutation(name="placeScheduledOrder")(OrderMutation.place_scheduled_order),
+    strawberry.mutation(name="updateOrder")(OrderMutation.update_order),
+    strawberry.mutation(name="cancelOrder")(OrderMutation.cancel_order),
 ]

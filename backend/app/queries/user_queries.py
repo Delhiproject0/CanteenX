@@ -1,6 +1,6 @@
 import strawberry
 from typing import List, Optional
-from app.models.user import User
+from app.models.user import UserType, User
 from app.core.database import get_db
 
 @strawberry.type
@@ -46,7 +46,32 @@ class UserQuery:
         ).all()
         return [UserType(**user.__dict__) for user in users]
 
+
+def resolve_get_user_by_id(user_id: int) -> Optional[UserType]:
+    # Get database session
+    db = next(get_db())
+    
+    # Query for the specific user
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        return None
+
+    return UserType(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        profile_picture=user.profile_pic,
+        is_vegetarian=user.is_vegetarian,
+        notif_prefs=user.notif_prefs
+    )
+
+# Create properly decorated fields with resolvers and matching frontend field names
+getUserById = strawberry.field(name="getUserById", resolver=resolve_get_user_by_id)
+
 queries = [
+    getUserById,
     strawberry.field(name="getUserById", resolver=UserQuery.get_user_by_id),
     strawberry.field(name="getUserByEmail", resolver=UserQuery.get_user_by_email),
     strawberry.field(name="getUsersByRole", resolver=UserQuery.get_users_by_role),

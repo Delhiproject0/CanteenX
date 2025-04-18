@@ -45,6 +45,7 @@ class Order(Base):
     user = relationship("User", back_populates="orders")
     canteen = relationship("Canteen", back_populates="orders")
 
+# SQLAlchemy Models
 class OrderStep(Base):
     __tablename__ = "order_steps"
     id = Column(Integer, primary_key=True, index=True)

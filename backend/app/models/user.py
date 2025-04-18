@@ -1,6 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Boolean, JSON, Enum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from pydantic import BaseModel
+from typing import List, Optional
+import strawberry
 
 class User(Base):
     __tablename__ = "users"

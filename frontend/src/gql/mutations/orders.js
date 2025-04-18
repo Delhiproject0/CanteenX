@@ -111,5 +111,131 @@ export const UPDATE_ORDER_PREPARATION_TIME = `
       success
       message
     }
+  }`
+
+export const GET_ALL_ORDERS_OF_USER = `
+query GetAllOrders($userId: Int!) {
+  getAllOrders(userId: $userId) {
+    orderId
+    userId
+    orderId
+    canteenId
+    items {
+      orderItemId
+      orderId
+      menuItemId
+      menuItemName
+      canteenId
+      canteenName
+      quantity
+      unitPrice
+      totalPrice
+      size
+      extras
+      preparationTime
+      isPrepared
+      specialInstructions
+      notes
+    }
+    subtotal
+    taxAmount
+    totalAmount
+    status
+    priority
+    taxRate
+    paymentStatus
+    paymentMethod
+    paymentId
+    cancellationReason
+    cancellationNotes
+    pickupTime
+    createdAt
+    updatedAt
   }
+}
+`;
+
+export const GET_ACTIVE_ORDERS_OF_USER = `
+query GetActiveOrders($userId: Int!) {
+    getActiveOrders(userId: $userId) {
+        orderId
+        userId
+        orderId
+        canteenId
+        items {
+        orderItemId
+        orderId
+        menuItemId
+        menuItemName
+        canteenId
+        canteenName
+        quantity
+        unitPrice
+        totalPrice
+        size
+        extras
+        preparationTime
+        isPrepared
+        specialInstructions
+        notes
+        }
+        subtotal
+        taxAmount
+        totalAmount
+        status
+        priority
+        taxRate
+        paymentStatus
+        paymentMethod
+        paymentId
+        cancellationReason
+        cancellationNotes
+        pickupTime
+        createdAt
+        updatedAt
+    }
+    }
+    `;
+
+export const GET_ORDER_BY_ID = `
+query GetOrderById($orderId: Int!) {
+  getOrderById(orderId: $orderId) {
+    orderId
+    userId
+    orderId
+    canteenId
+    items {
+      orderItemId
+      orderId
+      menuItemId
+      menuItemName
+      canteenId
+      canteenName
+      quantity
+      unitPrice
+      totalPrice
+      size
+      extras
+      preparationTime
+      isPrepared
+      specialInstructions
+      notes
+    }
+    subtotal
+    taxAmount
+    totalAmount
+    status
+    priority
+    taxRate
+    paymentStatus
+    paymentMethod
+    paymentId
+    cancellationReason
+    cancellationNotes
+    pickupTime
+    createdAt
+    updatedAt
+  }
+}
+>>>>>>> fff9908b2bc1d983fb8d961b87a53a7a4df68786
 `;

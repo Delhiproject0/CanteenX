@@ -1,6 +1,3 @@
-/**
- * GraphQL queries related to orders
- */
 
 /**
  * Query to fetch orders for a user
@@ -33,6 +30,92 @@ export const GET_USER_ORDERS = `
         quantity
         customizations
         note
+      }
+    }
+  }
+`;
+
+export const GET_ALL_ORDERS = `
+  query GetAllOrders($userId: Int!) {
+    getAllOrders(userId: $userId) {
+      user_id
+      canteen_id
+      subtotal
+      tax_amount
+      total_amount
+      status
+      priority
+      tax_rate
+      payment_status
+      payment_method
+      payment_id
+      cancellation_reason
+      cancellation_notes
+      pickup_time
+      created_at
+      updated_at
+      items {
+        menu_item_id
+        menu_item_name
+        canteen_id
+        canteen_name
+        quantity
+        unit_price
+        total_price
+        size {
+          name
+          price_adjustment
+        }
+        extras {
+          name
+          price
+        }
+        preparation_time
+        is_prepared
+        special_instructions
+        notes
+      }
+    }
+  }
+`;
+
+// Get active orders for a user
+export const GET_ACTIVE_ORDERS = `
+  query GetActiveOrders($userId: Int!) {
+    getActiveOrders(userId: $userId) {
+      user_id
+      canteen_id
+      subtotal
+      tax_amount
+      total_amount
+      status
+      priority
+      tax_rate
+      payment_status
+      payment_method
+      payment_id
+      pickup_time
+      created_at
+      updated_at
+      items {
+        menu_item_id
+        menu_item_name
+        canteen_id
+        canteen_name
+        quantity
+        unit_price
+        total_price
+        size {
+          name
+          price_adjustment
+        }
+        extras {
+          name
+          price
+        }
+        preparation_time
+        is_prepared
+        special_instructions
       }
     }
   }
@@ -141,7 +224,7 @@ export const GET_ORDERS_BY_STATUS = `
         quantity
         customizations
         note
-      }
+              }
     }
   }
 `;

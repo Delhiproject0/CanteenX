@@ -5,6 +5,7 @@ import strawberry
 from strawberry.tools import create_type
 
 from app.queries import queries
+from app.mutations import mutations
 from app.mutations.menu_mutations import mutations as menu_mutations
 from app.mutations.user_mutations import mutations as user_mutations
 from app.mutations.order_mutations import mutations as order_mutations
@@ -15,8 +16,10 @@ Mutation = create_type("Mutation", [
     *menu_mutations,
     *user_mutations,
     *order_mutations,
-    *canteen_mutations
+    *canteen_mutations,
+    mutations
 ])
+
 graphql_schema = strawberry.Schema(query=Query, mutation=Mutation)
 graphql_app = GraphQLRouter(schema=graphql_schema)
 
