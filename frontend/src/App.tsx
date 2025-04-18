@@ -25,7 +25,7 @@ import VendorPromotions from "./pages/vendor/VendorPromotions";
 import VendorAnalytics from "./pages/vendor/VendorAnalytics";
 import VendorSettings from "./pages/vendor/VendorSettings";
 import VendorBulkOrders from "./pages/vendor/VendorBulkOrders";
-
+import Checkout from './pages/Checkout';
 import { GqlProvider } from "./gql/gqlClient";
 
 const queryClient = new QueryClient();
@@ -52,7 +52,7 @@ const App = () => (
                 <Route path="/feedback" element={<Feedback />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/profile" element={<Profile />} />
-                
+                <Route path="/checkout" element={<Checkout />} />
                 {/* Vendor Pages */}
                 <Route path="/vendor/dashboard" element={<VendorDashboard />} />
                 <Route path="/vendor/orders" element={<VendorOrders />} />

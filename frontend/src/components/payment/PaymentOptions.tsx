@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -8,105 +7,203 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useMutation, useQuery } from '@apollo/client';
+import { INITIATE_PAYMENT, VERIFY_PAYMENT } from '../../gql/mutations/payments';
+import { GET_CANTEEN_MERCHANT } from '../../gql/queries/canteens';
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
-type PaymentMethod = 'creditCard' | 'debitCard' | 'upi' | 'wallet' | 'cash' | 'payLater';
+type PaymentMethod = 'upi' | 'wallet' | 'cash' | 'payLater';
 
 interface PaymentOptionsProps {
   totalAmount: number;
-  onPaymentComplete: (method: string) => void;
+  orderId: string;
+  userId: string;
+  canteenId: string;
+  onPaymentComplete: (method: string, status: string) => void;
 }
 
-const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentComplete }) => {
+const PaymentOptions: React.FC<PaymentOptionsProps> = ({ 
+  totalAmount, 
+  orderId, 
+  userId, 
+  canteenId, 
+  onPaymentComplete 
+}) => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('upi');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
   const [upiId, setUpiId] = useState('');
   const [walletId, setWalletId] = useState('');
   const [saveForLater, setSaveForLater] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPaymentSuccess, setIsPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // GraphQL hooks for payment operations
+  const [initiatePayment] = useMutation(INITIATE_PAYMENT);
+  const [verifyPayment] = useMutation(VERIFY_PAYMENT);
+  
+  // Fetch merchant details for the canteen
+  const { data: merchantData, loading: merchantLoading } = useQuery(GET_CANTEEN_MERCHANT, {
+    variables: { canteenId },
+    skip: !canteenId
+  });
 
   const handlePayNow = () => {
     setIsPaymentDialogOpen(true);
+    setPaymentError(null);
   };
 
   const handlePaymentCancel = () => {
     setIsPaymentDialogOpen(false);
     setIsPaymentSuccess(false);
+    setPaymentError(null);
   };
 
-  const handlePaymentSubmit = () => {
-    // Validate payment details based on selected method
-    if (selectedMethod === 'creditCard' || selectedMethod === 'debitCard') {
-      if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
-        toast.error('Please fill in all card details');
-        return;
-      }
-    } else if (selectedMethod === 'upi' && !upiId) {
-      toast.error('Please enter your UPI ID');
-      return;
-    } else if (selectedMethod === 'wallet' && !walletId) {
-      toast.error('Please enter your wallet details');
-      return;
-    }
+  const loadRazorpayScript = () => {
+    return new Promise<boolean>((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => {
+        resolve(true);
+      };
+      script.onerror = () => {
+        resolve(false);
+      };
+      document.body.appendChild(script);
+    });
+  };
 
-    // Process payment
-    setIsProcessing(true);
-    
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsPaymentSuccess(true);
+  const handlePaymentSubmit = async () => {
+    try {
+      setIsProcessing(true);
+      setPaymentError(null);
       
-      // Simulate a delay before closing the dialog
-      setTimeout(() => {
-        setIsPaymentDialogOpen(false);
-        setIsPaymentSuccess(false);
-        onPaymentComplete(selectedMethod);
+      if (selectedMethod === 'upi') {
+        // Get merchant ID from query
+        const merchantId = merchantData?.getCanteenMerchant?.id;
+        if (!merchantId) {
+          throw new Error("Merchant details not available");
+        }
         
-        // Reset form
-        setCardNumber('');
-        setCardName('');
-        setCardExpiry('');
-        setCardCvv('');
-        setUpiId('');
-        setWalletId('');
-      }, 2000);
-    }, 2000);
-  };
-
-  const formatCardNumber = (value: string) => {
-    const val = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = val.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return value;
-    }
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '');
-    
-    if (val.length <= 2) {
-      setCardExpiry(val);
-    } else if (val.length <= 4) {
-      setCardExpiry(`${val.slice(0, 2)}/${val.slice(2)}`);
+        // 1. Initiate payment on the server
+        const { data } = await initiatePayment({
+          variables: {
+            input: {
+              orderId,
+              userId,
+              paymentMethod: selectedMethod,
+              merchantId
+            }
+          }
+        });
+        
+        if (!data?.initiatePayment?.razorpay_order_id) {
+          throw new Error("Failed to initialize payment");
+        }
+        
+        // 2. Load Razorpay script
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          throw new Error("Failed to load payment gateway");
+        }
+        
+        // 3. Configure Razorpay
+        const options = {
+          key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_YOUR_KEY_ID", // Replace with your actual key
+          amount: totalAmount * 100, // Amount in paise
+          currency: "INR",
+          name: "IIIT Smart Canteen",
+          description: `Payment for Order #${orderId}`,
+          order_id: data.initiatePayment.razorpay_order_id,
+          handler: async function(response: any) {
+            try {
+              // 4. Verify payment
+              const result = await verifyPayment({
+                variables: {
+                  input: {
+                    paymentId: data.initiatePayment.payment_id,
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature
+                  }
+                }
+              });
+              
+              if (result.data?.verifyPayment?.status === "completed") {
+                setIsPaymentSuccess(true);
+                setTimeout(() => {
+                  setIsPaymentDialogOpen(false);
+                  setIsPaymentSuccess(false);
+                  onPaymentComplete(selectedMethod, "completed");
+                }, 2000);
+              } else {
+                throw new Error(result.data?.verifyPayment?.message || "Payment verification failed");
+              }
+            } catch (error: any) {
+              setPaymentError(error.message || "Payment verification failed");
+              setIsProcessing(false);
+            }
+          },
+          prefill: {
+            name: "User", // Should come from user context
+            email: "user@iiit.ac.in", // Should come from user context
+            contact: "9876543210" // Should come from user context
+          },
+          theme: {
+            color: "#3399cc"
+          },
+          modal: {
+            ondismiss: function() {
+              setIsProcessing(false);
+              toast("Payment cancelled");
+            }
+          }
+        };
+        
+        // 5. Open Razorpay checkout
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+      } else if (selectedMethod === 'wallet') {
+        // Wallet payment implementation will go here
+        // For now, we'll simulate a successful payment
+        setTimeout(() => {
+          setIsPaymentSuccess(true);
+          setTimeout(() => {
+            setIsPaymentDialogOpen(false);
+            setIsPaymentSuccess(false);
+            onPaymentComplete(selectedMethod, "completed");
+          }, 2000);
+        }, 2000);
+      } else if (selectedMethod === 'cash') {
+        // Cash payment implementation
+        setTimeout(() => {
+          setIsPaymentSuccess(true);
+          setTimeout(() => {
+            setIsPaymentDialogOpen(false);
+            setIsPaymentSuccess(false);
+            onPaymentComplete(selectedMethod, "pending");
+          }, 2000);
+        }, 1000);
+      } else if (selectedMethod === 'payLater') {
+        // Pay Later implementation will go here
+        // For now, we'll simulate a successful payment
+        setTimeout(() => {
+          setIsPaymentSuccess(true);
+          setTimeout(() => {
+            setIsPaymentDialogOpen(false);
+            setIsPaymentSuccess(false);
+            onPaymentComplete(selectedMethod, "completed");
+          }, 2000);
+        }, 2000);
+      }
+    } catch (error: any) {
+      setIsProcessing(false);
+      setPaymentError(error.message || "Payment processing failed");
+      toast.error(error.message || "Payment processing failed");
     }
   };
 
@@ -145,6 +242,15 @@ const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentC
               </DialogHeader>
               
               <div className="py-4">
+                {paymentError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                    <div className="flex items-start">
+                      <AlertCircle className="h-4 w-4 text-red-500 mr-2 mt-0.5" />
+                      <p>{paymentError}</p>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="mb-6">
                   <RadioGroup 
                     value={selectedMethod} 
@@ -152,96 +258,39 @@ const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentC
                     className="grid grid-cols-2 gap-4"
                   >
                     <div className="flex items-center space-x-2 border rounded-md p-3">
-                      <RadioGroupItem value="creditCard" id="creditCard" />
-                      <Label htmlFor="creditCard">Credit Card</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 border rounded-md p-3">
-                      <RadioGroupItem value="debitCard" id="debitCard" />
-                      <Label htmlFor="debitCard">Debit Card</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 border rounded-md p-3">
                       <RadioGroupItem value="upi" id="upi" />
-                      <Label htmlFor="upi">UPI</Label>
+                      <Label htmlFor="upi">UPI / Card</Label>
                     </div>
                     <div className="flex items-center space-x-2 border rounded-md p-3">
-                      <RadioGroupItem value="wallet" id="wallet" />
-                      <Label htmlFor="wallet">Wallet</Label>
+                      <RadioGroupItem 
+                        value="wallet" 
+                        id="wallet" 
+                        disabled={true} // Disable until implemented
+                      />
+                      <Label htmlFor="wallet" className={true ? "text-gray-400" : ""}>Wallet (Coming Soon)</Label>
                     </div>
                     <div className="flex items-center space-x-2 border rounded-md p-3">
                       <RadioGroupItem value="cash" id="cash" />
                       <Label htmlFor="cash">Cash on Delivery</Label>
                     </div>
                     <div className="flex items-center space-x-2 border rounded-md p-3">
-                      <RadioGroupItem value="payLater" id="payLater" />
-                      <Label htmlFor="payLater">Pay Later</Label>
+                      <RadioGroupItem 
+                        value="payLater" 
+                        id="payLater" 
+                        disabled={true} // Disable until implemented
+                      />
+                      <Label htmlFor="payLater" className={true ? "text-gray-400" : ""}>Pay Later (Coming Soon)</Label>
                     </div>
                   </RadioGroup>
                 </div>
 
-                {(selectedMethod === 'creditCard' || selectedMethod === 'debitCard') && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Card Number</Label>
-                      <Input 
-                        id="cardNumber" 
-                        value={cardNumber} 
-                        onChange={handleCardNumberChange} 
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                        className="font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName">Name on Card</Label>
-                      <Input 
-                        id="cardName" 
-                        value={cardName} 
-                        onChange={(e) => setCardName(e.target.value)} 
-                        placeholder="John Doe"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="cardExpiry">Expiry Date</Label>
-                        <Input 
-                          id="cardExpiry" 
-                          value={cardExpiry} 
-                          onChange={handleExpiryChange} 
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          className="font-mono"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cardCvv">CVV</Label>
-                        <Input 
-                          id="cardCvv" 
-                          value={cardCvv} 
-                          onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))} 
-                          placeholder="123"
-                          maxLength={3}
-                          type="password"
-                          className="font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {selectedMethod === 'upi' && (
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="upiId">UPI ID</Label>
-                      <Input 
-                        id="upiId" 
-                        value={upiId} 
-                        onChange={(e) => setUpiId(e.target.value)} 
-                        placeholder="yourname@upi"
-                      />
-                    </div>
-                    <div className="rounded-md bg-yellow-50 p-3 text-sm flex items-start">
-                      <AlertCircle className="h-4 w-4 text-yellow-500 mr-2 mt-0.5" />
-                      <p className="text-yellow-700">You'll receive a payment request on your UPI app.</p>
+                    <div className="rounded-md bg-blue-50 p-3 text-sm flex items-start">
+                      <AlertCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5" />
+                      <p className="text-blue-700">
+                        You'll be redirected to Razorpay to complete your payment securely using UPI, credit card, or debit card.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -259,15 +308,29 @@ const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentC
                     </div>
                     <div className="rounded-md bg-blue-50 p-3 text-sm flex items-start">
                       <AlertCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5" />
-                      <p className="text-blue-700">You'll be redirected to your wallet app to complete the payment.</p>
+                      <p className="text-blue-700">
+                        Use your campus wallet balance to pay for orders. Top up your wallet at the canteen counter.
+                      </p>
                     </div>
+                  </div>
+                )}
+
+                {selectedMethod === 'cash' && (
+                  <div className="rounded-md bg-yellow-50 p-3 text-sm flex items-start">
+                    <AlertCircle className="h-4 w-4 text-yellow-500 mr-2 mt-0.5" />
+                    <p className="text-yellow-700">
+                      Pay with cash when you pick up your order. Please keep exact change ready.
+                    </p>
                   </div>
                 )}
 
                 {selectedMethod === 'payLater' && (
                   <div className="rounded-md bg-gray-50 p-4 text-sm">
                     <h3 className="font-medium mb-2">Pay Later Eligibility</h3>
-                    <p className="text-gray-600 mb-4">This option is available for faculty members and registered hostel students only. Your campus ID will be verified.</p>
+                    <p className="text-gray-600 mb-4">
+                      This option is available for faculty members and registered hostel students only. 
+                      Your campus ID will be verified.
+                    </p>
                     <div className="space-y-2">
                       <Label htmlFor="campusId">Campus ID</Label>
                       <Input 
@@ -278,7 +341,7 @@ const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentC
                   </div>
                 )}
 
-                {selectedMethod !== 'cash' && selectedMethod !== 'payLater' && (
+                {selectedMethod !== 'cash' && (
                   <div className="flex items-center space-x-2 mt-4">
                     <Checkbox 
                       id="savePayment" 
@@ -299,7 +362,10 @@ const PaymentOptions: React.FC<PaymentOptionsProps> = ({ totalAmount, onPaymentC
                 <Button variant="outline" onClick={handlePaymentCancel} disabled={isProcessing}>
                   Cancel
                 </Button>
-                <Button onClick={handlePaymentSubmit} disabled={isProcessing}>
+                <Button 
+                  onClick={handlePaymentSubmit} 
+                  disabled={isProcessing || merchantLoading || (selectedMethod === 'upi' && !merchantData?.getCanteenMerchant?.id)}
+                >
                   {isProcessing ? 'Processing...' : `Pay ₹${totalAmount.toFixed(2)}`}
                 </Button>
               </DialogFooter>

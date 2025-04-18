@@ -4,7 +4,8 @@ Mock data script to populate the database with initial data for development
 import datetime
 import json
 from sqlalchemy.orm import Session
-
+from .models.payment import Merchant
+from .core.database import SessionLocal
 from app.core.database import engine, Base, get_db
 from app.models.canteen import Canteen
 from app.models.menu_item import MenuItem
@@ -448,10 +449,62 @@ def initialize_mock_data():
         add_mock_menu_items(db)
         add_mock_cart_data(db)
         add_mock_orders(db)
-        
+        create_merchant_data(db)
         print("✅ All mock data added successfully")
     except Exception as e:
         print(f"❌ Error initializing mock data: {e}")
+
+#  Payment mock merchant data
+
+def create_merchant_data(db: Session):
+    db = SessionLocal()
+    try:
+        # Check if merchants already exist
+        existing_merchant = db.query(Merchant).first()
+        if existing_merchant:
+            print("Merchant data already exists")
+            return
+        
+        # Create merchants for each canteen
+        merchants = [
+            Merchant(
+                canteen_id=1,
+                name="VC",
+                razorpay_merchant_id="north_merchant",
+                razorpay_key_id="rzp_test_LG7CwFwevu2LNK",
+                razorpay_key_secret="xAJyi89fMjP5IRGxua2hsNCE",
+                is_active=True
+            ),
+            Merchant(
+                canteen_id=2,
+                name="Tantra",
+                razorpay_merchant_id="south_merchant",
+                razorpay_key_id="rzp_test_LG7CwFwevu2LNK",
+                razorpay_key_secret="xAJyi89fMjP5IRGxua2hsNCE",
+                is_active=True
+            ),
+            Merchant(
+                canteen_id=3,
+                name="David's",
+                razorpay_merchant_id="cafeteria_merchant",
+                razorpay_key_id="rzp_test_LG7CwFwevu2LNK",
+                razorpay_key_secret="xAJyi89fMjP5IRGxua2hsNCE",
+                is_active=True
+            )
+        ]
+        
+        db.add_all(merchants)
+        db.commit()
+        print("Created merchant data")
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating merchant data: {e}")
+    finally:
+        db.close()
+
+
+
+
 
 if __name__ == "__main__":
     initialize_mock_data()

@@ -1,0 +1,52 @@
+"""
+type Payment {
+  id: ID!
+  orderId: ID!
+  userId: ID!
+  amount: Float!
+  paymentMethod: String!
+  status: String!
+  razorpayOrderId: String
+  createdAt: String!
+}
+
+type PaymentInitiationResponse {
+  payment_id: ID!
+  order_id: ID!
+  amount: Float!
+  payment_method: String!
+  razorpay_order_id: String
+  status: String!
+}
+
+type PaymentVerificationResponse {
+  payment_id: ID!
+  order_id: ID!
+  status: String!
+  message: String
+}
+
+input InitiatePaymentInput {
+  orderId: ID!
+  userId: ID!
+  paymentMethod: String!
+  merchantId: ID
+}
+
+input VerifyPaymentInput {
+  paymentId: ID!
+  razorpayOrderId: String!
+  razorpayPaymentId: String!
+  razorpaySignature: String!
+}
+
+extend type Query {
+  getPaymentById(paymentId: ID!): Payment
+  getUserPaymentHistory(userId: ID!): [Payment!]!
+}
+
+extend type Mutation {
+  initiatePayment(input: InitiatePaymentInput!): PaymentInitiationResponse!
+  verifyPayment(input: VerifyPaymentInput!): PaymentVerificationResponse!
+}
+"""

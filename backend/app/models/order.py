@@ -15,6 +15,7 @@ class Order(Base):
     vendor_name = Column(String, nullable=False)
     estimated_delivery_time = Column(String, nullable=True)
     current_status = Column(String, default="Order Placed")
+    payments = relationship("Payment", back_populates="order")
 
 class OrderItem(Base):
     __tablename__ = "order_items"
