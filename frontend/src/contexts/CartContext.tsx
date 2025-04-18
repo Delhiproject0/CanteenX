@@ -1,7 +1,6 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { menuItems as allMenuItems } from "@/data/mockData";
+import { useCartStore, CartItem as ZustandCartItem } from "@/stores/cartStore";
 
 export interface CartItem {
   id: number;
@@ -40,78 +39,94 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem("smartCanteenCart");
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error("Failed to parse saved cart:", error);
-      }
-    }
+  const { 
+    cartItems: zustandCartItems,
+    addItem: zustandAddItem,
+    removeItem: zustandRemoveItem,
+    updateItemQuantity: zustandUpdateQuantity,
+    clearCart: zustandClearCart,
+    getTotalAmount: zustandGetTotalAmount
+  } = useCartStore();
+
+  // Improved conversion function from Zustand format to Context format
+  const convertZustandToContextItem = useCallback((zustandItem: ZustandCartItem): CartItem => {
+    return {
+      id: Number(zustandItem.id),
+      itemId: Number(zustandItem.id),
+      name: zustandItem.name,
+      price: zustandItem.price,
+      quantity: zustandItem.quantity,
+      canteenId: Number(zustandItem.canteenId),
+      canteenName: zustandItem.canteenName,
+      image: zustandItem.customizations?.notes || "",
+      customizations: zustandItem.customizations?.additions
+    };
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Improved conversion function from Context format to Zustand format
+  const convertContextToZustandItem = useCallback((contextItem: CartItem): ZustandCartItem => {
+    return {
+      id: contextItem.id.toString(),
+      name: contextItem.name,
+      price: contextItem.price,
+      quantity: contextItem.quantity,
+      canteenId: contextItem.canteenId.toString(),
+      canteenName: contextItem.canteenName,
+      customizations: {
+        additions: contextItem.customizations || [],
+        notes: contextItem.image
+      }
+    };
+  }, []);
+
+  // Make sure the effect runs properly to sync cart items
   useEffect(() => {
-    localStorage.setItem("smartCanteenCart", JSON.stringify(items));
-  }, [items]);
+    try {
+      const contextItems = zustandCartItems.map(convertZustandToContextItem);
+      setItems(contextItems);
+      console.log("Cart updated:", contextItems.length, "items");
+    } catch (error) {
+      console.error("Error converting cart items:", error);
+    }
+  }, [zustandCartItems, convertZustandToContextItem]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const addItem = useCallback((newItem: CartItem) => {
-    setItems(prev => {
-      // Check if item from same canteen
-      const hasItemsFromOtherCanteen = prev.some(item => item.canteenId !== newItem.canteenId && prev.length > 0);
-      
-      if (hasItemsFromOtherCanteen) {
-        toast({
-          title: "Cannot add items from multiple canteens",
-          description: "Please complete your current order or clear your cart first.",
-          variant: "destructive",
-        });
-        return prev;
-      }
+    const hasItemsFromOtherCanteen = items.some(item => 
+      item.canteenId !== newItem.canteenId && items.length > 0
+    );
+    
+    if (hasItemsFromOtherCanteen) {
+      toast({
+        title: "Cannot add items from multiple canteens",
+        description: "Please complete your current order or clear your cart first.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      // Check if item already exists
-      const existingItemIndex = prev.findIndex(item => item.itemId === newItem.itemId);
-      
-      if (existingItemIndex >= 0) {
-        // Update quantity if item exists
-        const updatedItems = [...prev];
-        updatedItems[existingItemIndex].quantity += newItem.quantity;
-        
-        toast({
-          title: "Item quantity updated",
-          description: `${newItem.name} quantity increased to ${updatedItems[existingItemIndex].quantity}`,
-        });
-        
-        return updatedItems;
-      } else {
-        // Add new item
-        toast({
-          title: "Item added to cart",
-          description: `${newItem.name} added to your order`,
-        });
-        
-        return [...prev, { ...newItem, id: Date.now() }];
-      }
+    const zustandItem = convertContextToZustandItem(newItem);
+    zustandAddItem(zustandItem);
+    
+    toast({
+      title: "Item added to cart",
+      description: `${newItem.name} added to your order`,
     });
-  }, [toast]);
+  }, [items, toast, zustandAddItem, convertContextToZustandItem]);
 
   const removeItem = useCallback((id: number) => {
-    setItems(prev => {
-      const itemToRemove = prev.find(item => item.id === id);
-      if (itemToRemove) {
-        toast({
-          title: "Item removed",
-          description: `${itemToRemove.name} removed from your order`,
-        });
-      }
-      return prev.filter(item => item.id !== id);
-    });
-  }, [toast]);
+    const itemToRemove = items.find(item => item.id === id);
+    if (itemToRemove) {
+      zustandRemoveItem(id.toString());
+      
+      toast({
+        title: "Item removed",
+        description: `${itemToRemove.name} removed from your order`,
+      });
+    }
+  }, [items, toast, zustandRemoveItem]);
 
   const updateQuantity = useCallback((id: number, quantity: number) => {
     if (quantity < 1) {
@@ -119,29 +134,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    setItems(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, quantity } : item
-      )
-    );
-  }, [removeItem]);
+    zustandUpdateQuantity(id.toString(), quantity);
+  }, [removeItem, zustandUpdateQuantity]);
 
   const clearCart = useCallback(() => {
-    setItems([]);
+    zustandClearCart();
+    
     toast({
       title: "Cart cleared",
       description: "All items have been removed from your cart",
     });
-  }, [toast]);
+  }, [toast, zustandClearCart]);
 
   const checkout = useCallback(() => {
-    // In a real app, this would send the order to the backend
     toast({
       title: "Order placed successfully",
       description: `Your order of ${totalItems} items has been placed`,
     });
-    setItems([]);
-  }, [totalItems, toast]);
+    zustandClearCart();
+  }, [totalItems, toast, zustandClearCart]);
 
   return (
     <CartContext.Provider

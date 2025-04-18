@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -26,29 +25,43 @@ const OrderTracking = () => {
   const { id } = useParams<{ id: string }>();
   const { addNotification } = useNotification();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // Convert string ID to number for comparison
-  const numericId = id ? parseInt(id, 10) : 0;
-  
-  // Find the order by id
-  const order = orders.find(o => o.id === numericId);
-  
-  // Find canteen for this order
-  const canteen = order ? canteens.find(c => c.id === order.canteenId) : null;
-  
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Find the order from localStorage first, then fall back to mock data
+  useEffect(() => {
+    if (id) {
+      // Try to get from localStorage first
+      const storedOrders = JSON.parse(localStorage.getItem("smartCanteenOrders") || "[]");
+      const storedOrder = storedOrders.find(o => o.id === id);
+
+      if (storedOrder) {
+        setOrder(storedOrder);
+      } else {
+        // Fall back to mock data if not found in localStorage (for testing)
+        const mockOrder = orders.find(o => o.id === parseInt(id, 10));
+        setOrder(mockOrder);
+      }
+    }
+    setLoading(false);
+  }, [id]);
+
   // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
-    
+
     return () => clearInterval(interval);
   }, []);
-  
+
+  // Find canteen for this order
+  const canteen = order ? canteens.find(c => c.id === order.canteenId || c.id === parseInt(order.canteenId, 10)) : null;
+
   // Calculate estimated time remaining
   const getEstimatedTime = () => {
     if (!order) return null;
-    
+
     // In a real app, this would be based on the order status and preparation time
     switch (order.status) {
       case "pending":
@@ -67,16 +80,16 @@ const OrderTracking = () => {
         return "Unknown";
     }
   };
-  
+
   // Format time function
-  const formatTime = (dateString: string) => {
+  const formatTime = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
-  
+
   // Function to contact canteen
   const handleContactCanteen = () => {
     // In a real app, this might initiate a call or chat
@@ -86,7 +99,17 @@ const OrderTracking = () => {
       type: "info",
     });
   };
-  
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8 text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (!order) {
     return (
       <MainLayout>
@@ -100,7 +123,7 @@ const OrderTracking = () => {
       </MainLayout>
     );
   }
-  
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
@@ -114,7 +137,7 @@ const OrderTracking = () => {
           <h1 className="text-2xl font-bold">Track Order #{order.id}</h1>
           <OrderStatusBadge status={order.status} className="ml-4" />
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Order status and tracking */}
           <Card className="md:col-span-2">
@@ -127,17 +150,17 @@ const OrderTracking = () => {
                   <p className="text-sm text-gray-500">Order Placed</p>
                   <p className="font-medium">{formatTime(order.orderTime)}</p>
                 </div>
-                
+
                 <div>
                   <p className="text-sm text-gray-500">Current Status</p>
                   <OrderStatusBadge status={order.status} />
                 </div>
-                
+
                 <div>
                   <p className="text-sm text-gray-500">Estimated Time</p>
                   <p className="font-medium">{getEstimatedTime()}</p>
                 </div>
-                
+
                 <div>
                   <p className="text-sm text-gray-500">Current Time</p>
                   <p className="font-medium">
@@ -145,139 +168,122 @@ const OrderTracking = () => {
                   </p>
                 </div>
               </div>
-              
+
               {/* Progress tracker */}
               <div className="space-y-8 mt-8">
-                <div className="relative">
-                  {/* Progress line */}
-                  <div className="absolute left-[15px] top-0 h-full w-[2px] bg-gray-200" />
-                  
-                  {/* Order placed */}
-                  <div className="flex relative mb-8">
-                    <div className="rounded-full h-8 w-8 flex items-center justify-center bg-green-500 z-10">
+                {/* Order confirmation / Cancellation */}
+                <div className="flex relative mb-8">
+                  <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
+                    order.status === "cancelled" 
+                      ? "bg-red-500" 
+                      : ["confirmed", "preparing", "ready", "delivered"].includes(order.status) 
+                      ? "bg-green-500" 
+                      : "bg-gray-200"
+                  } z-10`}>
+                    {order.status === "cancelled" ? (
+                      <XCircle className="h-5 w-5 text-white" />
+                    ) : ["confirmed", "preparing", "ready", "delivered"].includes(order.status) ? (
                       <CheckCircle className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium">Order Placed</h3>
-                      <p className="text-sm text-gray-500">{formatTime(order.orderTime)}</p>
-                      <p className="text-sm mt-1">Your order has been received by the canteen.</p>
-                    </div>
+                    ) : (
+                      <Clock className="h-5 w-5 text-gray-500" />
+                    )}
                   </div>
-                  
-                  {/* Order confirmed */}
+                  <div className="ml-4">
+                    <h3 className="font-medium">
+                      {order.status === "cancelled" ? "Order Cancelled" : "Order Confirmed"}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {order.confirmedTime ? formatTime(order.confirmedTime) : "Awaiting confirmation"}
+                    </p>
+                    <p className="text-sm mt-1">
+                      {order.status === "cancelled" 
+                        ? order.cancellationReason || "Your order has been cancelled."
+                        : ["confirmed", "preparing", "ready", "delivered"].includes(order.status)
+                        ? "Your order has been confirmed and is being processed."
+                        : "The canteen is reviewing your order."}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Preparing */}
+                {order.status !== "cancelled" && (
                   <div className="flex relative mb-8">
                     <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
-                      ["confirmed", "preparing", "ready", "delivered"].includes(order.status) 
+                      ["preparing", "ready", "delivered"].includes(order.status) 
                         ? "bg-green-500" 
-                        : order.status === "cancelled" 
-                        ? "bg-red-500" 
                         : "bg-gray-200"
                     } z-10`}>
-                      {order.status === "cancelled" ? (
-                        <XCircle className="h-5 w-5 text-white" />
-                      ) : ["confirmed", "preparing", "ready", "delivered"].includes(order.status) ? (
-                        <CheckCircle className="h-5 w-5 text-white" />
+                      {["preparing", "ready", "delivered"].includes(order.status) ? (
+                        <ChefHat className="h-5 w-5 text-white" />
                       ) : (
-                        <Clock className="h-5 w-5 text-gray-500" />
+                        <ChefHat className="h-5 w-5 text-gray-500" />
                       )}
                     </div>
                     <div className="ml-4">
-                      <h3 className="font-medium">
-                        {order.status === "cancelled" ? "Order Cancelled" : "Order Confirmed"}
-                      </h3>
+                      <h3 className="font-medium">Preparing Your Order</h3>
                       <p className="text-sm text-gray-500">
-                        {order.confirmedTime ? formatTime(order.confirmedTime) : "Awaiting confirmation"}
+                        {order.preparingTime ? formatTime(order.preparingTime) : "Not started yet"}
                       </p>
                       <p className="text-sm mt-1">
-                        {order.status === "cancelled" 
-                          ? order.cancellationReason || "Your order has been cancelled."
-                          : ["confirmed", "preparing", "ready", "delivered"].includes(order.status)
-                          ? "Your order has been confirmed and is being processed."
-                          : "The canteen is reviewing your order."}
+                        {["preparing", "ready", "delivered"].includes(order.status)
+                          ? "Your food is being prepared in the kitchen."
+                          : "Waiting to start preparation."}
                       </p>
                     </div>
                   </div>
-                  
-                  {/* Preparing */}
-                  {order.status !== "cancelled" && (
-                    <div className="flex relative mb-8">
-                      <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
-                        ["preparing", "ready", "delivered"].includes(order.status) 
-                          ? "bg-green-500" 
-                          : "bg-gray-200"
-                      } z-10`}>
-                        {["preparing", "ready", "delivered"].includes(order.status) ? (
-                          <ChefHat className="h-5 w-5 text-white" />
-                        ) : (
-                          <ChefHat className="h-5 w-5 text-gray-500" />
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="font-medium">Preparing Your Order</h3>
-                        <p className="text-sm text-gray-500">
-                          {order.preparingTime ? formatTime(order.preparingTime) : "Not started yet"}
-                        </p>
-                        <p className="text-sm mt-1">
-                          {["preparing", "ready", "delivered"].includes(order.status)
-                            ? "Your food is being prepared in the kitchen."
-                            : "Waiting to start preparation."}
-                        </p>
-                      </div>
+                )}
+                
+                {/* Ready for pickup */}
+                {order.status !== "cancelled" && (
+                  <div className="flex relative mb-8">
+                    <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
+                      ["ready", "delivered"].includes(order.status) ? "bg-green-500" : "bg-gray-200"
+                    } z-10`}>
+                      {["ready", "delivered"].includes(order.status) ? (
+                        <Package className="h-5 w-5 text-white" />
+                      ) : (
+                        <Package className="h-5 w-5 text-gray-500" />
+                      )}
                     </div>
-                  )}
-                  
-                  {/* Ready for pickup */}
-                  {order.status !== "cancelled" && (
-                    <div className="flex relative mb-8">
-                      <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
-                        ["ready", "delivered"].includes(order.status) ? "bg-green-500" : "bg-gray-200"
-                      } z-10`}>
-                        {["ready", "delivered"].includes(order.status) ? (
-                          <Package className="h-5 w-5 text-white" />
-                        ) : (
-                          <Package className="h-5 w-5 text-gray-500" />
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="font-medium">Ready for Pickup</h3>
-                        <p className="text-sm text-gray-500">
-                          {order.readyTime ? formatTime(order.readyTime) : "Not ready yet"}
-                        </p>
-                        <p className="text-sm mt-1">
-                          {["ready", "delivered"].includes(order.status)
-                            ? "Your order is ready! Please proceed to the pickup counter."
-                            : "Your order is still being prepared."}
-                        </p>
-                      </div>
+                    <div className="ml-4">
+                      <h3 className="font-medium">Ready for Pickup</h3>
+                      <p className="text-sm text-gray-500">
+                        {order.readyTime ? formatTime(order.readyTime) : "Not ready yet"}
+                      </p>
+                      <p className="text-sm mt-1">
+                        {["ready", "delivered"].includes(order.status)
+                          ? "Your order is ready! Please proceed to the pickup counter."
+                          : "Your order is still being prepared."}
+                      </p>
                     </div>
-                  )}
-                  
-                  {/* Delivered */}
-                  {order.status !== "cancelled" && (
-                    <div className="flex relative">
-                      <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
-                        order.status === "delivered" ? "bg-green-500" : "bg-gray-200"
-                      } z-10`}>
-                        {order.status === "delivered" ? (
-                          <CheckCircle className="h-5 w-5 text-white" />
-                        ) : (
-                          <Truck className="h-5 w-5 text-gray-500" />
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="font-medium">Order Completed</h3>
-                        <p className="text-sm text-gray-500">
-                          {order.deliveryTime ? formatTime(order.deliveryTime) : "Pending delivery"}
-                        </p>
-                        <p className="text-sm mt-1">
-                          {order.status === "delivered"
-                            ? "You have received your order. Enjoy your meal!"
-                            : "Waiting for you to pick up your order."}
-                        </p>
-                      </div>
+                  </div>
+                )}
+                
+                {/* Delivered */}
+                {order.status !== "cancelled" && (
+                  <div className="flex relative">
+                    <div className={`rounded-full h-8 w-8 flex items-center justify-center ${
+                      order.status === "delivered" ? "bg-green-500" : "bg-gray-200"
+                    } z-10`}>
+                      {order.status === "delivered" ? (
+                        <CheckCircle className="h-5 w-5 text-white" />
+                      ) : (
+                        <Truck className="h-5 w-5 text-gray-500" />
+                      )}
                     </div>
-                  )}
-                </div>
+                    <div className="ml-4">
+                      <h3 className="font-medium">Order Completed</h3>
+                      <p className="text-sm text-gray-500">
+                        {order.deliveryTime ? formatTime(order.deliveryTime) : "Pending delivery"}
+                      </p>
+                      <p className="text-sm mt-1">
+                        {order.status === "delivered"
+                          ? "You have received your order. Enjoy your meal!"
+                          : "Waiting for you to pick up your order."}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

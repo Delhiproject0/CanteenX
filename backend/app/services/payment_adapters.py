@@ -77,10 +77,20 @@ class RazorpayAdapter(PaymentProcessor):
             # Verify the payment signature
             self.client.utility.verify_payment_signature(params_dict)
             
+            # Get payment details to confirm status
+            payment = self.client.payment.fetch(verification_data['razorpay_payment_id'])
+            
+            if payment['status'] != 'captured':
+                return {
+                    "status": "failed",
+                    "error": f"Payment not captured, current status: {payment['status']}"
+                }
+            
             # If verification succeeds, return success
             return {
                 "status": "success",
-                "payment_id": verification_data['razorpay_payment_id']
+                "payment_id": verification_data['razorpay_payment_id'],
+                "payment_details": payment
             }
         except Exception as e:
             # If verification fails

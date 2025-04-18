@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ShoppingCart as CartIcon, Trash2, Plus, Minus, ChevronRight } from "lucide-react";
@@ -25,17 +24,31 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/hooks/use-toast";
 
 export const ShoppingCart = () => {
   const [open, setOpen] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const navigate = useNavigate();
-  const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart, checkout } = useCart();
+  const { toast } = useToast();
+  
+  const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
 
   const handleCheckout = () => {
-    checkout();
+    if (items.length === 0) {
+      toast({
+        title: "Empty Cart",
+        description: "Please add items to your cart before checkout.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setOpen(false);
-    navigate("/orders");
+    // Add a small delay to ensure state is properly updated before navigation
+    setTimeout(() => {
+      navigate("/checkout");
+    }, 100);
   };
 
   const handleClearCart = () => {
