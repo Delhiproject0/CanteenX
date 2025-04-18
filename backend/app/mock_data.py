@@ -17,6 +17,7 @@ def add_mock_users(db: Session):
     users = [
         User(id=1, name="John Doe", email="john@example.com"),
         User(id=2, name="Jane Smith", email="jane@example.com"),
+        User(id=3,name="Canteen Admin_1",email = "central.canteen@university.edu")
     ]
     
     for user in users:
@@ -30,9 +31,63 @@ def add_mock_users(db: Session):
 def add_mock_canteens(db: Session):
     """Add mock canteens to the database"""
     canteens = [
-        Canteen(id=1, name="Central Canteen", location="Main Building", opening_time="08:00", closing_time="20:00"),
-        Canteen(id=2, name="Library Cafe", location="Library Building", opening_time="09:00", closing_time="18:00"),
-        Canteen(id=3, name="Tech Hub Canteen", location="Technology Block", opening_time="07:30", closing_time="22:00")
+        Canteen(
+            id=1, 
+            name="Central Canteen", 
+            location="Main Building",
+            email="central.canteen@university.edu",
+            contact_number="+91-9876543210",
+            breakfast_start="07:30",
+            breakfast_end="10:30",
+            lunch_start="12:00",
+            lunch_end="15:00",
+            dinner_start="18:00",
+            dinner_end="22:00",
+            rating=4.2,
+            rating_count=320,
+            description="The main campus canteen serving a variety of cuisines including North Indian, South Indian, and Chinese.",
+            supports_vegetarian=1,
+            supports_non_vegetarian=1,
+            supports_thali=1
+        ),
+        Canteen(
+            id=2, 
+            name="Library Cafe", 
+            location="Library Building",
+            email="library.cafe@university.edu",
+            contact_number="+91-9876543211",
+            breakfast_start="08:00",
+            breakfast_end="11:00",
+            lunch_start="12:00",
+            lunch_end="16:00",
+            dinner_start="17:00",
+            dinner_end="20:00",
+            rating=4.5,
+            rating_count=180,
+            description="A cozy cafe perfect for quick bites and refreshments while studying.",
+            supports_vegetarian=1,
+            supports_non_vegetarian=0,
+            supports_thali=0
+        ),
+        Canteen(
+            id=3, 
+            name="Tech Hub Canteen", 
+            location="Technology Block",
+            email="techhub.canteen@university.edu",
+            contact_number="+91-9876543212",
+            breakfast_start="07:00",
+            breakfast_end="10:00",
+            lunch_start="11:30",
+            lunch_end="15:30",
+            dinner_start="18:30",
+            dinner_end="23:00",
+            rating=4.0,
+            rating_count=250,
+            description="Modern canteen serving quick meals and snacks, popular among engineering students.",
+            supports_vegetarian=1,
+            supports_non_vegetarian=1,
+            supports_thali=1
+        )
     ]
     
     for canteen in canteens:
@@ -47,30 +102,135 @@ def add_mock_menu_items(db: Session):
     """Add mock menu items to the database"""
     menu_items = [
         MenuItem(
-            id=1, name="Paneer Butter Masala", description="Rich and creamy paneer curry",
-            price=180.0, image_url="https://images.unsplash.com/photo-1567188040759-fb8a254b3bd2?q=80&w=300&auto=format&fit=crop",
-            category="Indian Delights", canteen_id=1, is_available=1, is_vegetarian=1, is_featured=1
+            id=1, 
+            name="Paneer Butter Masala", 
+            description="Rich and creamy paneer curry made with fresh paneer cubes in a tomato-based gravy",
+            price=180.0, 
+            image_url="https://images.unsplash.com/photo-1567188040759-fb8a254b3bd2?q=80&w=300&auto=format&fit=crop",
+            category="Indian Delights", 
+            canteen_id=1, 
+            is_available=1, 
+            is_vegetarian=1, 
+            is_featured=1,
+            has_size_variations=True,
+            size_options="{\"regular\": 0, \"large\": 40}",  # JSON string format
+            min_quantity=1,
+            max_quantity=5,
+            preparation_time=20,
+            is_vegan=False,
+            is_gluten_free=True,
+            allows_special_instructions=True,
+            special_instructions_prompt="Any specific spice level or preparation instructions?",
+            calories=450,
+            spice_level=3,
+            popularity_score=4.8,
+            average_rating=4.5,
+            total_ratings=120
         ),
         MenuItem(
-            id=2, name="Masala Dosa", description="Crispy crepe filled with spicy potato filling",
-            price=80.0, image_url="https://images.unsplash.com/photo-1589301760014-d929f86731c7?q=80&w=300&auto=format&fit=crop",
-            category="South Indian", canteen_id=1, is_available=1, is_vegetarian=1, is_featured=0
+            id=2, 
+            name="Masala Dosa", 
+            description="Crispy crepe filled with spicy potato filling, served with sambar and chutneys",
+            price=80.0, 
+            image_url="https://images.unsplash.com/photo-1589301760014-d929f86731c7?q=80&w=300&auto=format&fit=crop",
+            category="South Indian", 
+            canteen_id=1, 
+            is_available=1, 
+            is_vegetarian=1, 
+            is_featured=0,
+            has_size_variations=False,
+            size_options=None,
+            min_quantity=1,
+            max_quantity=3,
+            preparation_time=15,
+            is_vegan=True,
+            is_gluten_free=False,
+            allows_special_instructions=True,
+            special_instructions_prompt="Any specific instructions for chutney or sambar?",
+            calories=300,
+            spice_level=2,
+            popularity_score=4.6,
+            average_rating=4.7,
+            total_ratings=200
         ),
         MenuItem(
-            id=3, name="Cold Coffee", description="Refreshing cold coffee with ice cream",
-            price=70.0, image_url="https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?q=80&w=300&auto=format&fit=crop",
-            category="Beverages", canteen_id=2, is_available=1, is_vegetarian=1, is_featured=1
+            id=3, 
+            name="Cold Coffee", 
+            description="Refreshing cold coffee with vanilla ice cream and chocolate sauce",
+            price=70.0, 
+            image_url="https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?q=80&w=300&auto=format&fit=crop",
+            category="Beverages", 
+            canteen_id=2, 
+            is_available=1, 
+            is_vegetarian=1, 
+            is_featured=1,
+            has_size_variations=True,
+            size_options="{\"regular\": 0, \"large\": 30}",  # JSON string format
+            min_quantity=1,
+            max_quantity=4,
+            preparation_time=5,
+            is_vegan=False,
+            is_gluten_free=True,
+            allows_special_instructions=True,
+            special_instructions_prompt="Customize sugar level or extra toppings?",
+            calories=180,
+            spice_level=0,
+            popularity_score=4.9,
+            average_rating=4.8,
+            total_ratings=150
         ),
         MenuItem(
-            id=4, name="Veg Burger", description="Delicious vegetable patty with fresh veggies",
-            price=90.0, image_url="https://images.unsplash.com/photo-1550317138-10000687a72b?q=80&w=300&auto=format&fit=crop",
-            category="Fast Food", canteen_id=3, is_available=1, is_vegetarian=1, is_featured=1
+            id=4, 
+            name="Veg Burger", 
+            description="Delicious vegetable patty with fresh veggies, cheese, and special sauce",
+            price=90.0, 
+            image_url="https://images.unsplash.com/photo-1550317138-10000687a72b?q=80&w=300&auto=format&fit=crop",
+            category="Fast Food", 
+            canteen_id=3, 
+            is_available=1, 
+            is_vegetarian=1, 
+            is_featured=1,
+            has_size_variations=False,
+            size_options=None,
+            min_quantity=1,
+            max_quantity=5,
+            preparation_time=12,
+            is_vegan=False,
+            is_gluten_free=False,
+            allows_special_instructions=True,
+            special_instructions_prompt="Any toppings to remove or special sauce instructions?",
+            calories=380,
+            spice_level=1,
+            popularity_score=4.5,
+            average_rating=4.3,
+            total_ratings=180
         ),
         MenuItem(
-            id=5, name="French Fries", description="Crispy potato fries with seasoning",
-            price=60.0, image_url="https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?q=80&w=300&auto=format&fit=crop",
-            category="Fast Food", canteen_id=3, is_available=1, is_vegetarian=1, is_featured=0
-        ),
+            id=5, 
+            name="French Fries", 
+            description="Crispy potato fries with special seasoning and dipping sauce",
+            price=60.0, 
+            image_url="https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?q=80&w=300&auto=format&fit=crop",
+            category="Fast Food", 
+            canteen_id=3, 
+            is_available=1, 
+            is_vegetarian=1, 
+            is_featured=0,
+            has_size_variations=True,
+            size_options="{\"small\": -20, \"regular\": 0, \"large\": 30}",  # JSON string format
+            min_quantity=1,
+            max_quantity=3,
+            preparation_time=10,
+            is_vegan=True,
+            is_gluten_free=True,
+            allows_special_instructions=True,
+            special_instructions_prompt="Any specific seasoning preference?",
+            calories=250,
+            spice_level=1,
+            popularity_score=4.7,
+            average_rating=4.6,
+            total_ratings=220
+        )
     ]
     
     for item in menu_items:

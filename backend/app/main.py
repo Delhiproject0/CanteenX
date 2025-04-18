@@ -5,11 +5,11 @@ import strawberry
 from strawberry.tools import create_type
 
 from app.queries import queries
-# from app.queries.cart_queries import mutations as cart_mutations
+from app.mutations.menu_mutations import mutations as menu_mutations
 
 Query = create_type("Query", queries)
-# Mutation = create_type("Mutation", cart_mutations)
-graphql_schema = strawberry.Schema(query=Query)
+Mutation = create_type("Mutation", menu_mutations)
+graphql_schema = strawberry.Schema(query=Query, mutation=Mutation)
 graphql_app = GraphQLRouter(schema=graphql_schema)
 
 app = FastAPI()

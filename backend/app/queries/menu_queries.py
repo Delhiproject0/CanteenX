@@ -1,7 +1,22 @@
 import strawberry
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from app.models.menu_item import MenuItem
 from app.core.database import get_db
+import json
+
+@strawberry.scalar(
+    name="JSON",
+    description="The `JSON` scalar type represents JSON values as Python objects",
+    specified_by_url="http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf",
+)
+class JSON:
+    @staticmethod
+    def serialize(value: Any) -> str:
+        return json.dumps(value)
+
+    @staticmethod
+    def parse_value(value: str) -> Any:
+        return json.loads(value)
 
 @strawberry.type
 class MenuItemType:
@@ -9,95 +24,177 @@ class MenuItemType:
     name: str
     description: Optional[str] = None
     price: float
-    image_url: Optional[str] = None
+    imageUrl: Optional[str] = strawberry.field(default=None)
     category: Optional[str] = None
-    canteen_id: int
-    is_available: bool
-    is_vegetarian: bool
-    is_featured: bool
+    canteenId: int = strawberry.field(default=None)
+    isAvailable: bool = strawberry.field(default=True)
+    isVegetarian: bool = strawberry.field(default=False)
+    isFeatured: bool = strawberry.field(default=False)
+    hasSizeVariations: bool = strawberry.field(default=False)
+    sizeOptions: Optional[JSON] = None
+    minQuantity: int = strawberry.field(default=1)
+    maxQuantity: int = strawberry.field(default=10)
+    preparationTime: int = strawberry.field(default=15)
+    isVegan: bool = strawberry.field(default=False)
+    isGlutenFree: bool = strawberry.field(default=False)
+    allowsSpecialInstructions: bool = strawberry.field(default=True)
+    specialInstructionsPrompt: Optional[str] = None
+    calories: Optional[int] = None
+    spiceLevel: int = strawberry.field(default=1)
+    popularityScore: float = strawberry.field(default=0.0)
+    averageRating: float = strawberry.field(default=0.0)
+    totalRatings: int = strawberry.field(default=0)
 
-# Resolver for getting all menu items
-def resolve_get_menu_items() -> List[MenuItemType]:
-    # Get database session
-    db = next(get_db())
-    
-    # Query the database for menu items
-    db_menu_items = db.query(MenuItem).all()
-    
-    # Convert to MenuItemType - handling boolean conversion
-    return [
-        MenuItemType(
-            id=item.id, 
-            name=item.name, 
-            description=item.description, 
-            price=item.price, 
-            image_url=item.image_url, 
-            category=item.category,
-            canteen_id=item.canteen_id,
-            is_available=bool(item.is_available),
-            is_vegetarian=bool(item.is_vegetarian),
-            is_featured=bool(item.is_featured)
-        ) 
-        for item in db_menu_items
-    ]
+@strawberry.type
+class MenuQuery:
+    @strawberry.field
+    def get_menu_items(self) -> List[MenuItemType]:
+        """Get all menu items"""
+        db = next(get_db())
+        db_menu_items = db.query(MenuItem).all()
+        return [
+            MenuItemType(
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                price=item.price,
+                imageUrl=item.image_url,
+                category=item.category,
+                canteenId=item.canteen_id,
+                isAvailable=bool(item.is_available),
+                isVegetarian=bool(item.is_vegetarian),
+                isFeatured=bool(item.is_featured),
+                hasSizeVariations=item.has_size_variations,
+                sizeOptions=item.size_options,
+                minQuantity=item.min_quantity,
+                maxQuantity=item.max_quantity,
+                preparationTime=item.preparation_time,
+                isVegan=item.is_vegan,
+                isGlutenFree=item.is_gluten_free,
+                allowsSpecialInstructions=item.allows_special_instructions,
+                specialInstructionsPrompt=item.special_instructions_prompt,
+                calories=item.calories,
+                spiceLevel=item.spice_level,
+                popularityScore=item.popularity_score,
+                averageRating=item.average_rating,
+                totalRatings=item.total_ratings
+            )
+            for item in db_menu_items
+        ]
 
-# Resolver for getting featured menu items
-def resolve_get_featured_menu_items() -> List[MenuItemType]:
-    # Get database session
-    db = next(get_db())
-    
-    # Query the database for featured menu items
-    featured_items = db.query(MenuItem).filter(MenuItem.is_featured == 1).all()
-    
-    # Convert to MenuItemType with boolean conversion
-    return [
-        MenuItemType(
-            id=item.id, 
-            name=item.name, 
-            description=item.description, 
-            price=item.price, 
-            image_url=item.image_url, 
-            category=item.category,
-            canteen_id=item.canteen_id,
-            is_available=bool(item.is_available),
-            is_vegetarian=bool(item.is_vegetarian),
-            is_featured=bool(item.is_featured)
-        ) 
-        for item in featured_items
-    ]
 
-# Resolver for getting menu items by canteen ID
-def resolve_get_menu_items_by_canteen(canteen_id: int) -> List[MenuItemType]:
-    # Get database session
-    db = next(get_db())
-    
-    # Query the database for menu items filtered by canteen_id
-    canteen_items = db.query(MenuItem).filter(MenuItem.canteen_id == canteen_id).all()
-    
-    # Convert to MenuItemType with boolean conversion
-    return [
-        MenuItemType(
-            id=item.id, 
-            name=item.name, 
-            description=item.description, 
-            price=item.price, 
-            image_url=item.image_url, 
-            category=item.category,
-            canteen_id=item.canteen_id,
-            is_available=bool(item.is_available),
-            is_vegetarian=bool(item.is_vegetarian),
-            is_featured=bool(item.is_featured)
-        ) 
-        for item in canteen_items
-    ]
+    @strawberry.field
+    def get_menu_items_by_canteen(self, canteen_id: int) -> List[MenuItemType]:
+        """Get menu items by canteen ID"""
+        db = next(get_db())
+        canteen_items = db.query(MenuItem).filter(MenuItem.canteen_id == canteen_id).all()
+        return [
+            MenuItemType(
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                price=item.price,
+                imageUrl=item.image_url,
+                category=item.category,
+                canteenId=item.canteen_id,
+                isAvailable=bool(item.is_available),
+                isVegetarian=bool(item.is_vegetarian),
+                isFeatured=bool(item.is_featured),
+                hasSizeVariations=item.has_size_variations,
+                sizeOptions=item.size_options,
+                minQuantity=item.min_quantity,
+                maxQuantity=item.max_quantity,
+                preparationTime=item.preparation_time,
+                isVegan=item.is_vegan,
+                isGlutenFree=item.is_gluten_free,
+                allowsSpecialInstructions=item.allows_special_instructions,
+                specialInstructionsPrompt=item.special_instructions_prompt,
+                calories=item.calories,
+                spiceLevel=item.spice_level,
+                popularityScore=item.popularity_score,
+                averageRating=item.average_rating,
+                totalRatings=item.total_ratings
+            )
+            for item in canteen_items
+        ]
+    @strawberry.field
+    def get_featured_menu_items(self, canteen_id: int) -> List[MenuItemType]:
+        """Get featured menu items for a specific canteen"""
+        db = next(get_db())
+        featured_items = (
+            db.query(MenuItem)
+            .filter(MenuItem.is_featured == 1, MenuItem.canteen_id == canteen_id)
+            .all()
+        )
+        return [
+            MenuItemType(
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                price=item.price,
+                imageUrl=item.image_url,
+                category=item.category,
+                canteenId=item.canteen_id,
+                isAvailable=bool(item.is_available),
+                isVegetarian=bool(item.is_vegetarian),
+                isFeatured=bool(item.is_featured),
+                hasSizeVariations=item.has_size_variations,
+                sizeOptions=item.size_options,
+                minQuantity=item.min_quantity,
+                maxQuantity=item.max_quantity,
+                preparationTime=item.preparation_time,
+                isVegan=item.is_vegan,
+                isGlutenFree=item.is_gluten_free,
+                allowsSpecialInstructions=item.allows_special_instructions,
+                specialInstructionsPrompt=item.special_instructions_prompt,
+                calories=item.calories,
+                spiceLevel=item.spice_level,
+                popularityScore=item.popularity_score,
+                averageRating=item.average_rating,
+                totalRatings=item.total_ratings
+            )
+            for item in featured_items
+        ]
 
-# Create properly decorated fields with resolvers and matching frontend field names
-getMenuItems = strawberry.field(name="getMenuItems", resolver=resolve_get_menu_items)
-getFeaturedMenuItems = strawberry.field(name="getFeaturedMenuItems", resolver=resolve_get_featured_menu_items)
-getMenuItemsByCanteen = strawberry.field(name="getMenuItemsByCanteen", resolver=resolve_get_menu_items_by_canteen)
+    @strawberry.field
+    def get_menu_items_by_category(self, category: str) -> List[MenuItemType]:
+        """Get menu items by category"""
+        db = next(get_db())
+        category_items = db.query(MenuItem).filter(MenuItem.category == category).all()
+        return [
+            MenuItemType(
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                price=item.price,
+                imageUrl=item.image_url,
+                category=item.category,
+                canteenId=item.canteen_id,
+                isAvailable=bool(item.is_available),
+                isVegetarian=bool(item.is_vegetarian),
+                isFeatured=bool(item.is_featured),
+                hasSizeVariations=item.has_size_variations,
+                sizeOptions=item.size_options,
+                minQuantity=item.min_quantity,
+                maxQuantity=item.max_quantity,
+                preparationTime=item.preparation_time,
+                isVegan=item.is_vegan,
+                isGlutenFree=item.is_gluten_free,
+                allowsSpecialInstructions=item.allows_special_instructions,
+                specialInstructionsPrompt=item.special_instructions_prompt,
+                calories=item.calories,
+                spiceLevel=item.spice_level,
+                popularityScore=item.popularity_score,
+                averageRating=item.average_rating,
+                totalRatings=item.total_ratings
+            )
+            for item in category_items
+        ]
 
+# Create query instances
 queries = [
-    getMenuItems,
-    getFeaturedMenuItems,
-    getMenuItemsByCanteen
+    strawberry.field(name="getMenuItems", resolver=MenuQuery.get_menu_items),
+    strawberry.field(name="getFeaturedMenuItems", resolver=MenuQuery.get_featured_menu_items),
+    strawberry.field(name="getMenuItemsByCanteen", resolver=MenuQuery.get_menu_items_by_canteen),
+    strawberry.field(name="getMenuItemsByCategory", resolver=MenuQuery.get_menu_items_by_category)
 ]
